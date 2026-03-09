@@ -1,0 +1,43 @@
+{
+  "name": "vbuilder",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
+    "drizzle-orm": "^0.36.4",
+    "next": "14.2.16",
+    "pg": "^8.13.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hook-form": "^7.53.2",
+    "stripe": "^17.4.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "drizzle-kit": "^0.27.1",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.16",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

@@ -1,0 +1,10 @@
+.next
+node_modules
+.env
+.env.*
+!.env.example
+playwright-report
+test-results
+coverage
+
+tsconfig.tsbuildinfo
