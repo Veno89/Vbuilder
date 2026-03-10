@@ -37,6 +37,7 @@ Each module contains domain, application, infrastructure, API integration, schem
 ## Auth Model
 - Auth service (`AuthService`) handles sign-up/sign-in orchestration and depends on interfaces for user persistence, session issuance, verification token creation, notification delivery, and audit logging.
 - `SessionIssuerService` stores hashed session tokens, revokes prior active sessions for the user (basic rotation policy), and returns raw bearer tokens once.
+- `AuthContextService` resolves the authenticated actor from the secure `vb_session` cookie by hashing the token, verifying the backing session is active/non-expired, and validating the user is not suspended.
 - `EmailVerificationConfirmService` consumes hashed verification tokens and marks users verified.
 - `PasswordResetService` handles reset token issuance + password update workflow with hashed tokens and audit events.
 - HTTP entry points are implemented via `/api/auth/*` route handlers (signup, signin, logout, verify-email, forgot-password, reset-password).
@@ -44,12 +45,26 @@ Each module contains domain, application, infrastructure, API integration, schem
 
 ## Organizations and Invitations Model
 - `OrganizationService` owns organization creation and owner membership bootstrap.
+- `OrganizationService` also owns ownership transfer (owner-only), requiring the target to already be a member and writing an explicit audit event.
 - `InvitationService` owns invitation send/accept workflows with permission checks and entitlement-aware member limit checks.
+- `InvitationService` also owns invitation decline with single-use token state transitions (`acceptedAt`/`declinedAt`) enforced in persistence.
 - `MembershipService` owns role changes and removals with centralized permission enforcement.
-- HTTP entry points exist for org create, invite send/accept, member role update, and member removal under `/api/organizations/*` and `/api/invitations/accept`.
+- `OrgPermissionService` provides explicit service-boundary authorization (`requireOrgPermission(actor, orgId, permission)`) and is reused by organization/invitation/membership services.
+- Generic membership role updates do not assign `owner`; ownership changes are handled through the dedicated transfer workflow.
+- Invariants are enforced across services/repositories: invitation tokens are single-use, ownership transfer preserves one owner per organization, and non-owners cannot transfer ownership.
+- Organization/membership/invitation HTTP routes no longer trust request-body `actorUserId`; they derive actor identity from server-side session context before calling services.
+- Routes remain thin wrappers; authorization decisions are enforced in application services via named permissions rather than ad hoc route checks.
+- HTTP entry points exist for org create, invite send, member role update/member removal, and invitation accept/decline under `/api/organizations/*` and `/api/invitations/*`.
 
 ## Billing Model
 Stripe is source of truth for payment events; synchronized subscription state is canonical for entitlement checks inside application services.
+
+- `BillingService` owns checkout session creation, billing portal session creation, and webhook synchronization workflows.
+- Billing API routes (`/api/billing/checkout`, `/api/billing/portal`, `/api/billing/webhook`) are thin adapters over application services.
+- Billing management endpoints require `organization:billing.manage` permission server-side.
+- Webhooks are verified using Stripe signatures and deduplicated with `stripe_webhook_events` idempotency records.
+- Subscription webhook sync writes canonical subscription state and entitlement snapshots from mapped internal plans.
+- `EntitlementEnforcementService` enforces member-limit checks from canonical server-side state (`memberships` count + `subscriptions` plan), removing any client influence on plan/member-count calculations.
 
 ## Multi-Tenant Model
 Organization is the primary tenant boundary. Every tenant-owned read/write path validates membership + permission server-side before access.
@@ -63,3 +78,13 @@ Organization is the primary tenant boundary. Every tenant-owned read/write path 
 - Password hashing via `scrypt` with timing-safe comparisons
 - Persist only hashed session/verification/reset tokens
 - Rate-limit auth endpoints and rotate active sessions on new login
+- Rate-limit high-risk tenant mutation endpoints (invitation accept/decline/send, member role/remove, ownership transfer, billing checkout/portal)
+
+## Audit Logging
+- `AuditLogRepository` persists audit events to `audit_logs` and is wired into auth, organization, invitation, membership, and billing application containers.
+- Critical workflows (auth lifecycle events, membership changes, invite acceptance/decline, ownership transfer, billing sync) now use a concrete writer rather than noop stubs.
+
+## Admin Model
+- Admin access is platform-scoped and independent from tenant roles, enforced via server-side allowlist (`PLATFORM_ADMIN_EMAILS`).
+- `AdminService` currently provides an authenticated `GET /api/admin/overview` endpoint with explicit admin access checks and audit event logging.
+- App Router includes a minimal `/admin` dashboard page that consumes the server-validated overview endpoint and surfaces authorization/transport errors.

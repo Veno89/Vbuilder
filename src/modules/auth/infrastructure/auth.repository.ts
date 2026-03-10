@@ -69,6 +69,20 @@ export class DrizzleSessionRepository implements SessionRepository {
       .set({ revokedAt: new Date() })
       .where(and(eq(sessions.tokenHash, tokenHash), isNull(sessions.revokedAt)));
   }
+
+  async findValidByTokenHash(tokenHash: string): Promise<SessionRecord | null> {
+    const now = new Date();
+    const record = await this.db.query.sessions.findFirst({
+      where: and(
+        eq(sessions.tokenHash, tokenHash),
+        isNull(sessions.revokedAt),
+        gt(sessions.expiresAt, now)
+      )
+    });
+
+    return record ?? null;
+  }
+
   async revokeAllActiveForUserExcept(userId: string, keepTokenHash: string): Promise<void> {
     await this.db
       .update(sessions)

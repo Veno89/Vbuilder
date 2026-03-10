@@ -68,4 +68,58 @@ export class OrganizationRepository {
 
     return result[0] ?? null;
   }
+
+  async transferOwnership(input: {
+    organizationId: string;
+    currentOwnerUserId: string;
+    targetOwnerUserId: string;
+  }): Promise<void> {
+    await this.database.transaction(async (tx) => {
+      const updatedOrganization = await tx
+        .update(organizations)
+        .set({ ownerUserId: input.targetOwnerUserId })
+        .where(
+          and(
+            eq(organizations.id, input.organizationId),
+            eq(organizations.ownerUserId, input.currentOwnerUserId)
+          )
+        )
+        .returning({ id: organizations.id });
+
+      if (!updatedOrganization[0]) {
+        throw new Error('Ownership transfer failed due to stale owner state.');
+      }
+
+      const demotedOwner = await tx
+        .update(memberships)
+        .set({ role: 'admin' })
+        .where(
+          and(
+            eq(memberships.organizationId, input.organizationId),
+            eq(memberships.userId, input.currentOwnerUserId),
+            eq(memberships.role, 'owner')
+          )
+        )
+        .returning({ id: memberships.id });
+
+      if (!demotedOwner[0]) {
+        throw new Error('Current owner membership was not in owner role.');
+      }
+
+      const promotedOwner = await tx
+        .update(memberships)
+        .set({ role: 'owner' })
+        .where(
+          and(
+            eq(memberships.organizationId, input.organizationId),
+            eq(memberships.userId, input.targetOwnerUserId)
+          )
+        )
+        .returning({ id: memberships.id });
+
+      if (!promotedOwner[0]) {
+        throw new Error('Target user is not a member of this organization.');
+      }
+    });
+  }
 }

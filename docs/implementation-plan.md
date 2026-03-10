@@ -39,23 +39,25 @@
 - [x] Membership role update/remove service + routes
 - [x] Repository support for org/member/invite workflows
 - [x] Unit tests for org/membership/invitation services
-- [ ] Ownership transfer workflow
-- [ ] Invitation decline flow
-- [ ] Better authenticated actor resolution (replace actorUserId request payloads)
+- [x] Integration tests for org/invitation/membership lifecycle invariants
+- [x] Ownership transfer workflow
+- [x] Invitation decline flow
+- [x] Better authenticated actor resolution (replace actorUserId request payloads)
 
 ## Phase 4: RBAC and Guards
-- [ ] Central permission guard services
-- [ ] Route and service-level enforcement
+- [x] Central permission guard services
+- [x] Route and service-level enforcement
 
 ## Phase 5: Billing and Entitlements
-- [ ] Checkout + portal
-- [ ] Webhooks and sync
-- [ ] Entitlement enforcement in domain services
+- [x] Checkout + portal
+- [x] Webhooks and sync
+- [x] Entitlement enforcement in domain services
 
 ## Phase 6: Admin + Audit + Hardening
-- [ ] Admin dashboard
-- [ ] Audit logging service integration
-- [ ] Security hardening and observability baseline
+- [x] Admin dashboard
+- [x] Admin overview API scaffold
+- [x] Audit logging service integration
+- [x] Security hardening and observability baseline
 
 ## Blockers
 - Package installation is blocked in this environment (`npm install` currently returns 403 from registry policy).

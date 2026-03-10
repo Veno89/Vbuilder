@@ -8,6 +8,7 @@ export type SessionRecord = {
 
 export interface SessionRepository {
   create(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<SessionRecord>;
+  findValidByTokenHash(tokenHash: string): Promise<SessionRecord | null>;
   revokeByTokenHash(tokenHash: string): Promise<void>;
   revokeAllActiveForUserExcept(userId: string, keepTokenHash: string): Promise<void>;
 }

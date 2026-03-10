@@ -13,4 +13,9 @@ describe('permissions matrix', () => {
   it('prevents viewers from using app features requiring write', () => {
     expect(hasPermission('viewer', 'app:use')).toBe(false);
   });
+
+  it('allows only owners to transfer organization ownership', () => {
+    expect(hasPermission('owner', 'organization:ownership.transfer')).toBe(true);
+    expect(hasPermission('admin', 'organization:ownership.transfer')).toBe(false);
+  });
 });
