@@ -197,6 +197,21 @@ export const entitlementSnapshots = pgTable(
   })
 );
 
+export const stripeWebhookEvents = pgTable(
+  'stripe_webhook_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    eventIdUniqueIdx: uniqueIndex('stripe_webhook_events_event_id_unique_idx').on(table.eventId),
+    processedAtIdx: index('stripe_webhook_events_processed_at_idx').on(table.processedAt)
+  })
+);
+
 export const auditLogs = pgTable(
   'audit_logs',
   {

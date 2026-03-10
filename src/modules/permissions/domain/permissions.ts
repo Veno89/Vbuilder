@@ -3,6 +3,7 @@ export type Role = 'owner' | 'admin' | 'member' | 'viewer';
 export type Permission =
   | 'organization:update'
   | 'organization:billing.manage'
+  | 'organization:ownership.transfer'
   | 'members:read'
   | 'members:invite'
   | 'members:remove'
@@ -14,6 +15,7 @@ const rolePermissions: Record<Role, Permission[]> = {
   owner: [
     'organization:update',
     'organization:billing.manage',
+    'organization:ownership.transfer',
     'members:read',
     'members:invite',
     'members:remove',

@@ -12,6 +12,24 @@
 4. Subscription state updates internal subscription table.
 5. Entitlement service derives limits/features from synchronized plan state.
 
+## Implemented Billing API Skeleton
+- `POST /api/billing/checkout`: authenticated actor + `organization:billing.manage` permission required.
+- `POST /api/billing/portal`: authenticated actor + `organization:billing.manage` permission required.
+- `POST /api/billing/webhook`: Stripe signature verification + idempotent event handling.
+
+## Webhook Sync Behavior
+- Verify webhook signature with Stripe webhook secret.
+- Insert event into `stripe_webhook_events`; duplicates are ignored.
+- For subscription events:
+  - resolve organization id from Stripe metadata/customer mapping,
+  - map Stripe price id to internal plan,
+  - upsert `subscriptions` canonical state,
+  - write entitlement snapshot derived from internal plan.
+
+## Entitlement Enforcement in Domain Flows
+- Member-limit enforcement for invitations is performed server-side by `EntitlementEnforcementService`.
+- The check derives current member count from `memberships` and plan from canonical `subscriptions` state (fallback `free`), not from request payloads.
+
 ## Idempotency Behavior
 - Store processed webhook event IDs.
 - Ignore duplicates safely.

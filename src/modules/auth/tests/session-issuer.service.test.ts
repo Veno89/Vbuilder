@@ -11,6 +11,7 @@ describe('SessionIssuerService', () => {
         expiresAt: new Date(),
         revokedAt: null
       }),
+      findValidByTokenHash: vi.fn(),
       revokeByTokenHash: vi.fn(),
       revokeAllActiveForUserExcept: vi.fn().mockResolvedValue(undefined)
     };

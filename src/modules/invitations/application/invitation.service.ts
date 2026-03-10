@@ -1,10 +1,17 @@
 import type { AuditLogWriter } from '@/modules/audit-logs/domain/audit-log.types';
-import { canAddMember } from '@/modules/entitlements/domain/entitlements';
 import { hashToken } from '@/modules/auth/domain/token';
-import { requirePermission } from '@/modules/permissions/application/permission-guard.service';
+import type { EntitlementEnforcementService } from '@/modules/entitlements/application/entitlement-enforcement.service';
+import type { OrgPermissionGuard } from '@/modules/permissions/application/org-permission.service';
 import { AuthorizationError } from '@/modules/shared/domain/errors';
 import { MembershipRepository } from '@/modules/memberships/infrastructure/membership.repository';
-import { sendInvitationSchema, acceptInvitationSchema, type AcceptInvitationInput, type SendInvitationInput } from '../schemas/invitation.schemas';
+import {
+  sendInvitationSchema,
+  acceptInvitationSchema,
+  declineInvitationSchema,
+  type AcceptInvitationInput,
+  type DeclineInvitationInput,
+  type SendInvitationInput
+} from '../schemas/invitation.schemas';
 import { InvitationRepository } from '../infrastructure/invitation.repository';
 
 export type InvitationNotifier = {
@@ -21,33 +28,34 @@ export class InvitationService {
   constructor(
     private readonly invitations: InvitationRepository,
     private readonly memberships: MembershipRepository,
+    private readonly permissions: OrgPermissionGuard,
+    private readonly entitlements: EntitlementEnforcementService,
     private readonly notifier: InvitationNotifier,
     private readonly auditLogs: AuditLogWriter
   ) {}
 
-  async send(rawInput: SendInvitationInput & { token: string; plan: 'free' | 'starter' | 'pro'; currentMemberCount: number }): Promise<void> {
+  async send(
+    rawInput: SendInvitationInput & {
+      actorUserId: string;
+      token: string;
+    }
+  ): Promise<void> {
     const input = sendInvitationSchema.parse(rawInput);
+    const actorUserId = rawInput.actorUserId;
 
-    const senderMembership = await this.memberships.findByOrganizationAndUser(
-      input.organizationId,
-      input.actorUserId
-    );
+    await this.permissions.requireOrgPermission({
+      actorUserId,
+      organizationId: input.organizationId,
+      permission: 'members:invite'
+    });
 
-    if (!senderMembership) {
-      throw new AuthorizationError('Actor is not a member of this organization.');
-    }
-
-    requirePermission(senderMembership.role, 'members:invite');
-
-    if (!canAddMember(rawInput.currentMemberCount, rawInput.plan)) {
-      throw new AuthorizationError('Plan member limit reached.');
-    }
+    await this.entitlements.assertCanAddMember(input.organizationId);
 
     await this.invitations.create({
       organizationId: input.organizationId,
       email: input.email,
       role: input.role,
-      invitedByUserId: input.actorUserId,
+      invitedByUserId: actorUserId,
       tokenHash: hashToken(rawInput.token),
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7)
     });
@@ -55,13 +63,13 @@ export class InvitationService {
     await this.notifier.sendOrganizationInvite({
       email: input.email,
       organizationId: input.organizationId,
-      invitedByUserId: input.actorUserId,
+      invitedByUserId: actorUserId,
       token: rawInput.token,
       role: input.role
     });
 
     await this.auditLogs.write({
-      actorUserId: input.actorUserId,
+      actorUserId,
       organizationId: input.organizationId,
       action: 'invitation.sent',
       targetType: 'invitation',
@@ -70,9 +78,10 @@ export class InvitationService {
     });
   }
 
-  async accept(rawInput: AcceptInvitationInput): Promise<{ organizationId: string }> {
+  async accept(rawInput: AcceptInvitationInput & { actorUserId: string }): Promise<{ organizationId: string }> {
     const input = acceptInvitationSchema.parse(rawInput);
-    const invitation = await this.invitations.consumeValidToken(hashToken(input.token));
+    const actorUserId = rawInput.actorUserId;
+    const invitation = await this.invitations.acceptValidToken(hashToken(input.token));
 
     if (!invitation) {
       throw new AuthorizationError('Invalid or expired invitation token.');
@@ -80,14 +89,34 @@ export class InvitationService {
 
     await this.memberships.create({
       organizationId: invitation.organizationId,
-      userId: input.actorUserId,
+      userId: actorUserId,
       role: invitation.role
     });
 
     await this.auditLogs.write({
-      actorUserId: input.actorUserId,
+      actorUserId,
       organizationId: invitation.organizationId,
       action: 'invitation.accepted',
+      targetType: 'invitation',
+      targetId: invitation.id
+    });
+
+    return { organizationId: invitation.organizationId };
+  }
+
+  async decline(rawInput: DeclineInvitationInput & { actorUserId: string }): Promise<{ organizationId: string }> {
+    const input = declineInvitationSchema.parse(rawInput);
+    const actorUserId = rawInput.actorUserId;
+    const invitation = await this.invitations.declineValidToken(hashToken(input.token));
+
+    if (!invitation) {
+      throw new AuthorizationError('Invalid or expired invitation token.');
+    }
+
+    await this.auditLogs.write({
+      actorUserId,
+      organizationId: invitation.organizationId,
+      action: 'invitation.declined',
       targetType: 'invitation',
       targetId: invitation.id
     });

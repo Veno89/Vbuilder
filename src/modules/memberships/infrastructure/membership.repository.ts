@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import { memberships } from '@/server/db/schema';
 import type { DatabaseClient } from '@/server/db/client';
 
@@ -73,5 +73,14 @@ export class MembershipRepository {
     await this.database
       .delete(memberships)
       .where(and(eq(memberships.organizationId, organizationId), eq(memberships.userId, userId)));
+  }
+
+  async countByOrganizationId(organizationId: string): Promise<number> {
+    const result = await this.database
+      .select({ value: count() })
+      .from(memberships)
+      .where(eq(memberships.organizationId, organizationId));
+
+    return result[0]?.value ?? 0;
   }
 }

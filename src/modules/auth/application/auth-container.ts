@@ -10,13 +10,8 @@ import { EmailVerificationConfirmService } from './email-verification-confirm.se
 import { EmailVerificationService } from './email-verification.service';
 import { PasswordResetService, type PasswordResetNotifier } from './password-reset.service';
 import { SessionIssuerService } from './session-issuer.service';
-import type { AuditLogWriter } from '@/modules/audit-logs/domain/audit-log.types';
-
-const noopAuditWriter: AuditLogWriter = {
-  async write(): Promise<void> {
-    return;
-  }
-};
+import { AuthContextService } from './auth-context.service';
+import { auditLogWriter } from '@/modules/audit-logs/application/audit-log-container';
 
 const noopVerificationNotifier = {
   async sendVerifyEmail(): Promise<void> {
@@ -43,20 +38,22 @@ export const authService = new AuthService(
   sessionIssuer,
   emailVerificationService,
   noopVerificationNotifier,
-  noopAuditWriter
+  auditLogWriter
 );
 
 export const emailVerificationConfirmService = new EmailVerificationConfirmService(
   verificationTokens,
   users,
-  noopAuditWriter
+  auditLogWriter
 );
 
 export const passwordResetService = new PasswordResetService(
   users,
   resetTokens,
   noopPasswordResetNotifier,
-  noopAuditWriter
+  auditLogWriter
 );
 
 export const sessionRepository = sessions;
+export const userRepository = users;
+export const authContextService = new AuthContextService(sessions, users);
