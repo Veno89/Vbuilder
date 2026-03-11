@@ -78,12 +78,27 @@ export class InvitationService {
     });
   }
 
-  async accept(rawInput: AcceptInvitationInput & { actorUserId: string }): Promise<{ organizationId: string }> {
+  async accept(
+    rawInput: AcceptInvitationInput & { actorUserId: string; actorEmail: string }
+  ): Promise<{ organizationId: string }> {
     const input = acceptInvitationSchema.parse(rawInput);
     const actorUserId = rawInput.actorUserId;
-    const invitation = await this.invitations.acceptValidToken(hashToken(input.token));
+    const invitation = await this.invitations.findValidToken(hashToken(input.token));
 
     if (!invitation) {
+      throw new AuthorizationError('Invalid or expired invitation token.');
+    }
+
+    const invitedEmail = invitation.email.trim().toLowerCase();
+    const actorEmail = rawInput.actorEmail.trim().toLowerCase();
+
+    if (invitedEmail !== actorEmail) {
+      throw new AuthorizationError('Invitation recipient does not match authenticated user email.');
+    }
+
+    const markedAccepted = await this.invitations.markAccepted(invitation.id);
+
+    if (!markedAccepted) {
       throw new AuthorizationError('Invalid or expired invitation token.');
     }
 

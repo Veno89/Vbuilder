@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createCheckoutSessionSchema = z.object({
   organizationId: z.string().uuid(),
-  priceId: z.string().min(1),
+  planKey: z.enum(['starter', 'pro']),
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional()
 });

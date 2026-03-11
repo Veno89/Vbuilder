@@ -8,22 +8,11 @@ import {
 import { AuthService } from './auth.service';
 import { EmailVerificationConfirmService } from './email-verification-confirm.service';
 import { EmailVerificationService } from './email-verification.service';
-import { PasswordResetService, type PasswordResetNotifier } from './password-reset.service';
+import { PasswordResetService } from './password-reset.service';
 import { SessionIssuerService } from './session-issuer.service';
 import { AuthContextService } from './auth-context.service';
 import { auditLogWriter } from '@/modules/audit-logs/application/audit-log-container';
-
-const noopVerificationNotifier = {
-  async sendVerifyEmail(): Promise<void> {
-    return;
-  }
-};
-
-const noopPasswordResetNotifier: PasswordResetNotifier = {
-  async sendResetPasswordEmail(): Promise<void> {
-    return;
-  }
-};
+import { notificationService } from '@/modules/notifications/application/notification-container';
 
 const users = new DrizzleUserRepository(db);
 const sessions = new DrizzleSessionRepository(db);
@@ -37,7 +26,7 @@ export const authService = new AuthService(
   users,
   sessionIssuer,
   emailVerificationService,
-  noopVerificationNotifier,
+  notificationService,
   auditLogWriter
 );
 
@@ -50,7 +39,7 @@ export const emailVerificationConfirmService = new EmailVerificationConfirmServi
 export const passwordResetService = new PasswordResetService(
   users,
   resetTokens,
-  noopPasswordResetNotifier,
+  notificationService,
   auditLogWriter
 );
 

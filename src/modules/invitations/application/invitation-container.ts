@@ -6,13 +6,8 @@ import { OrgPermissionService } from '@/modules/permissions/application/org-perm
 import { db } from '@/server/db/client';
 import { BillingRepository } from '@/modules/billing/infrastructure/billing.repository';
 import { InvitationRepository } from '../infrastructure/invitation.repository';
-import { InvitationService, type InvitationNotifier } from './invitation.service';
-
-const noopInvitationNotifier: InvitationNotifier = {
-  async sendOrganizationInvite(): Promise<void> {
-    return;
-  }
-};
+import { InvitationService } from './invitation.service';
+import { notificationService } from '@/modules/notifications/application/notification-container';
 
 const invitations = new InvitationRepository(db);
 const memberships = new MembershipRepository(db);
@@ -25,7 +20,7 @@ export const invitationService = new InvitationService(
   memberships,
   permissions,
   entitlements,
-  noopInvitationNotifier,
+  notificationService,
   auditLogWriter
 );
 

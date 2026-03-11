@@ -41,7 +41,7 @@ Each module contains domain, application, infrastructure, API integration, schem
 - `EmailVerificationConfirmService` consumes hashed verification tokens and marks users verified.
 - `PasswordResetService` handles reset token issuance + password update workflow with hashed tokens and audit events.
 - HTTP entry points are implemented via `/api/auth/*` route handlers (signup, signin, logout, verify-email, forgot-password, reset-password).
-- Basic in-memory per-IP rate limiting guards auth-sensitive endpoints; planned upgrade is distributed rate limiting.
+- Rate limiting uses a shared adapter: in-memory by default, with optional Redis REST backend for distributed deployments (`RATE_LIMIT_REDIS_REST_URL` + `RATE_LIMIT_REDIS_REST_TOKEN`).
 
 ## Organizations and Invitations Model
 - `OrganizationService` owns organization creation and owner membership bootstrap.
@@ -80,9 +80,17 @@ Organization is the primary tenant boundary. Every tenant-owned read/write path 
 - Rate-limit auth endpoints and rotate active sessions on new login
 - Rate-limit high-risk tenant mutation endpoints (invitation accept/decline/send, member role/remove, ownership transfer, billing checkout/portal)
 
+## Notifications
+- Notification delivery is wired through a concrete provider adapter (Resend REST) used by signup verification, password reset, and organization invitation flows.
+- Provider failures are logged with actionable context and surfaced as explicit delivery errors to callers.
+
 ## Audit Logging
 - `AuditLogRepository` persists audit events to `audit_logs` and is wired into auth, organization, invitation, membership, and billing application containers.
 - Critical workflows (auth lifecycle events, membership changes, invite acceptance/decline, ownership transfer, billing sync) now use a concrete writer rather than noop stubs.
+
+## Settings Model
+- Account settings API supports authenticated account read + email update + password change, all enforced server-side.
+- Organization settings API supports name/slug updates gated by `organization:update` permission checks in application services.
 
 ## Admin Model
 - Admin access is platform-scoped and independent from tenant roles, enforced via server-side allowlist (`PLATFORM_ADMIN_EMAILS`).

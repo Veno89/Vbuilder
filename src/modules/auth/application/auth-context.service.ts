@@ -33,7 +33,7 @@ export class AuthContextService {
     private readonly users: UserRepository
   ) {}
 
-  async requireAuthenticatedActor(request: Request): Promise<{ userId: string }> {
+  async requireAuthenticatedActor(request: Request): Promise<{ userId: string; email: string }> {
     const sessionToken = getCookieValue(request.headers.get('cookie'), sessionCookieName);
     if (!sessionToken) {
       throw new AuthorizationError('Authentication is required.');
@@ -49,6 +49,6 @@ export class AuthContextService {
       throw new AuthorizationError('Invalid authenticated user.');
     }
 
-    return { userId: session.userId };
+    return { userId: session.userId, email: user.email };
   }
 }

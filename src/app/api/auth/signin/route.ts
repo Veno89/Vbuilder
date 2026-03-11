@@ -7,7 +7,7 @@ const sessionCookieName = 'vb_session';
 
 export async function POST(request: Request): Promise<Response> {
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: rateLimitKeyFromRequest(request, 'auth:signin'),
     limit: 10,
     windowMs: 60_000

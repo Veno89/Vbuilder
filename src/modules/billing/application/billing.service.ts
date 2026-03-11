@@ -13,7 +13,7 @@ export type BillingCheckoutProvider = {
   createCheckoutSession(input: {
     organizationId: string;
     actorUserId: string;
-    priceId: string;
+    stripePriceId: string;
     successUrl: string;
     cancelUrl: string;
   }): Promise<{ url: string }>;
@@ -94,6 +94,7 @@ export class BillingService {
     private readonly webhookEvents: BillingWebhookEventRepository,
     private readonly subscriptions: BillingSubscriptionRepository,
     private readonly entitlements: BillingEntitlementSnapshotWriter,
+    private readonly planKeyToStripePriceId: (planKey: CreateCheckoutSessionInput['planKey']) => string,
     private readonly planFromStripePriceId: (priceId: string) => Plan,
     private readonly appUrl: string,
     private readonly auditLogs: AuditLogWriter
@@ -113,7 +114,7 @@ export class BillingService {
     return this.checkoutProvider.createCheckoutSession({
       organizationId: input.organizationId,
       actorUserId: rawInput.actorUserId,
-      priceId: input.priceId,
+      stripePriceId: this.planKeyToStripePriceId(input.planKey),
       successUrl: input.successUrl ?? `${this.appUrl}/billing/success`,
       cancelUrl: input.cancelUrl ?? `${this.appUrl}/billing/cancel`
     });

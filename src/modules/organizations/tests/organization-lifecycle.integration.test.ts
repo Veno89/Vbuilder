@@ -139,14 +139,21 @@ describe('Organization/Invitation/Membership integration invariants', () => {
         store.invitations.set(input.tokenHash, record);
         return record;
       },
-      async acceptValidToken(tokenHash: string) {
+      async findValidToken(tokenHash: string) {
         const invitation = store.invitations.get(tokenHash);
         if (!invitation || invitation.acceptedAt || invitation.declinedAt || invitation.expiresAt <= new Date()) {
           return null;
         }
-        const accepted = { ...invitation, acceptedAt: new Date() };
-        store.invitations.set(tokenHash, accepted);
-        return accepted;
+        return invitation;
+      },
+      async markAccepted(invitationId: string) {
+        const invitation = Array.from(store.invitations.values()).find((item) => item.id === invitationId);
+        if (!invitation || invitation.acceptedAt || invitation.declinedAt || invitation.expiresAt <= new Date()) {
+          return false;
+        }
+
+        store.invitations.set(invitation.tokenHash, { ...invitation, acceptedAt: new Date() });
+        return true;
       },
       async declineValidToken(tokenHash: string) {
         const invitation = store.invitations.get(tokenHash);
@@ -239,6 +246,7 @@ describe('Organization/Invitation/Membership integration invariants', () => {
 
     await invitationService.accept({
       actorUserId: targetUserId,
+      actorEmail: 'new-owner@example.com',
       token: invitationToken
     });
 
@@ -341,14 +349,21 @@ describe('Organization/Invitation/Membership integration invariants', () => {
         store.invitations.set(input.tokenHash, record);
         return record;
       },
-      async acceptValidToken(tokenHash: string) {
+      async findValidToken(tokenHash: string) {
         const invitation = store.invitations.get(tokenHash);
         if (!invitation || invitation.acceptedAt || invitation.declinedAt || invitation.expiresAt <= new Date()) {
           return null;
         }
-        const accepted = { ...invitation, acceptedAt: new Date() };
-        store.invitations.set(tokenHash, accepted);
-        return accepted;
+        return invitation;
+      },
+      async markAccepted(invitationId: string) {
+        const invitation = Array.from(store.invitations.values()).find((item) => item.id === invitationId);
+        if (!invitation || invitation.acceptedAt || invitation.declinedAt || invitation.expiresAt <= new Date()) {
+          return false;
+        }
+
+        store.invitations.set(invitation.tokenHash, { ...invitation, acceptedAt: new Date() });
+        return true;
       },
       async declineValidToken(tokenHash: string) {
         const invitation = store.invitations.get(tokenHash);
@@ -426,6 +441,17 @@ describe('Organization/Invitation/Membership integration invariants', () => {
       token: invitationToken
     });
 
+    await expect(
+      invitationService.accept({
+        actorUserId: inviteeUserId,
+        actorEmail: 'wrong-recipient@example.com',
+        token: invitationToken
+      })
+    ).rejects.toThrow('Invitation recipient does not match authenticated user email.');
+
+    const pendingInvitation = store.invitations.get(hashToken(invitationToken));
+    expect(pendingInvitation?.acceptedAt).toBeNull();
+
     await invitationService.decline({
       actorUserId: inviteeUserId,
       token: invitationToken
@@ -434,6 +460,7 @@ describe('Organization/Invitation/Membership integration invariants', () => {
     await expect(
       invitationService.accept({
         actorUserId: inviteeUserId,
+        actorEmail: 'invitee@example.com',
         token: invitationToken
       })
     ).rejects.toThrow(AuthorizationError);

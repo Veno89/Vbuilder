@@ -8,7 +8,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const actor = await authContextService.requireAuthenticatedActor(request);
-    const rateLimit = enforceRateLimit({
+    const rateLimit = await enforceRateLimit({
       key: rateLimitKeyFromRequest(request, `org:member.remove:${actor.userId}`),
       limit: 20,
       windowMs: 60_000

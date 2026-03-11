@@ -8,7 +8,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const actor = await authContextService.requireAuthenticatedActor(request);
-    const rateLimit = enforceRateLimit({
+    const rateLimit = await enforceRateLimit({
       key: rateLimitKeyFromRequest(request, `billing:portal:${actor.userId}`),
       limit: 10,
       windowMs: 60_000

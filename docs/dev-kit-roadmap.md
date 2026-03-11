@@ -72,3 +72,13 @@ Advanced patterns are supported without architectural churn.
 
 ## Priority Principle
 Prioritize anything that protects trust boundaries, production operability, and adoption confidence before adding premium breadth.
+
+
+### Progress Update (2026-03-10)
+- ⏳ Deliverable 7 partial: Playwright golden-path E2E flow now includes verification-token retrieval via dev inbox endpoint; full CI execution still pending environment prerequisites.
+- ✅ Deliverable 1 complete: transactional notification provider wiring shipped for verify/reset/invite flows.
+- ✅ Deliverable 2 complete: invite acceptance identity binding shipped.
+- ✅ Deliverable 3 complete: checkout hardened to plan-key model with server-side mapping.
+- ✅ Deliverable 4 complete: distributed-ready rate limiter adapter shipped (Redis REST optional, in-memory fallback).
+- ✅ Deliverable 5 complete: minimal account and organization settings APIs shipped with server-side authorization checks.
+- ⏳ Remaining Phase 1 deliverables still in progress (integration/E2E, docs completion).
