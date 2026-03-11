@@ -41,22 +41,16 @@ export class InvitationRepository {
     };
   }
 
-  async acceptValidToken(tokenHash: string): Promise<InvitationRecord | null> {
+  async findValidToken(tokenHash: string): Promise<InvitationRecord | null> {
     const now = new Date();
-    const result = await this.db
-      .update(invitations)
-      .set({ acceptedAt: now })
-      .where(
-        and(
+    const found = await this.db.query.invitations.findFirst({
+      where: and(
         eq(invitations.tokenHash, tokenHash),
         gt(invitations.expiresAt, now),
         isNull(invitations.acceptedAt),
         isNull(invitations.declinedAt)
-        )
       )
-      .returning();
-
-    const found = result[0];
+    });
 
     if (!found) {
       return null;
@@ -71,6 +65,24 @@ export class InvitationRepository {
       tokenHash: found.tokenHash,
       expiresAt: found.expiresAt
     };
+  }
+
+  async markAccepted(invitationId: string): Promise<boolean> {
+    const now = new Date();
+    const result = await this.db
+      .update(invitations)
+      .set({ acceptedAt: now })
+      .where(
+        and(
+          eq(invitations.id, invitationId),
+          gt(invitations.expiresAt, now),
+          isNull(invitations.acceptedAt),
+          isNull(invitations.declinedAt)
+        )
+      )
+      .returning({ id: invitations.id });
+
+    return Boolean(result[0]);
   }
 
   async declineValidToken(tokenHash: string): Promise<InvitationRecord | null> {

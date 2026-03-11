@@ -31,7 +31,7 @@
 - [x] Basic session rotation (revoke active sessions on new login)
 - [x] Basic per-IP auth endpoint rate limiting
 - [ ] Advanced session concurrency controls (device/session visibility)
-- [ ] Distributed rate limiting store (Redis or equivalent)
+- [x] Distributed-ready rate limiting adapter (Redis REST optional with in-memory fallback)
 
 ## Phase 3: Organizations, Memberships, Invitations (In Progress)
 - [x] Organization creation service + route
@@ -43,6 +43,7 @@
 - [x] Ownership transfer workflow
 - [x] Invitation decline flow
 - [x] Better authenticated actor resolution (replace actorUserId request payloads)
+- [x] Invitation acceptance recipient binding to authenticated actor email
 
 ## Phase 4: RBAC and Guards
 - [x] Central permission guard services
@@ -50,10 +51,14 @@
 
 ## Phase 5: Billing and Entitlements
 - [x] Checkout + portal
+- [x] Checkout trust boundary hardening (`planKey` input, server-side Stripe price mapping)
 - [x] Webhooks and sync
 - [x] Entitlement enforcement in domain services
 
 ## Phase 6: Admin + Audit + Hardening
+- [x] Real transactional notification wiring (verify/reset/invite)
+- [x] Remove obsolete `NEXTAUTH_SECRET` env requirement from custom-auth runtime
+- [x] Settings baseline APIs (account read/email/password + organization name/slug update)
 - [x] Admin dashboard
 - [x] Admin overview API scaffold
 - [x] Audit logging service integration

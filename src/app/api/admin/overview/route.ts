@@ -6,7 +6,7 @@ import { enforceRateLimit, rateLimitKeyFromRequest } from '@/modules/shared/secu
 export async function GET(request: Request): Promise<Response> {
   try {
     const actor = await authContextService.requireAuthenticatedActor(request);
-    const rateLimit = enforceRateLimit({
+    const rateLimit = await enforceRateLimit({
       key: rateLimitKeyFromRequest(request, `admin:overview:${actor.userId}`),
       limit: 30,
       windowMs: 60_000

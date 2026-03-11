@@ -13,7 +13,7 @@
 5. Entitlement service derives limits/features from synchronized plan state.
 
 ## Implemented Billing API Skeleton
-- `POST /api/billing/checkout`: authenticated actor + `organization:billing.manage` permission required.
+- `POST /api/billing/checkout`: authenticated actor + `organization:billing.manage` permission required; request accepts internal `planKey` (`starter`/`pro`) only.
 - `POST /api/billing/portal`: authenticated actor + `organization:billing.manage` permission required.
 - `POST /api/billing/webhook`: Stripe signature verification + idempotent event handling.
 
@@ -39,3 +39,8 @@
 - Free: low member limit, premium features disabled.
 - Starter: increased member limit + baseline premium set.
 - Pro: highest limits + full premium feature set.
+
+
+## Checkout Trust Boundary
+- Client submits `planKey` only; raw Stripe `priceId` is never accepted from request payloads.
+- Server maps `planKey` to Stripe price ID using server-side configuration (`STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`) before creating checkout sessions.

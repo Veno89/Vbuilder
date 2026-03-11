@@ -6,7 +6,7 @@ import { resetPasswordSchema } from '@/modules/auth/schemas/auth.schemas';
 
 export async function POST(request: Request): Promise<Response> {
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: rateLimitKeyFromRequest(request, 'auth:reset-password'),
     limit: 10,
     windowMs: 60_000

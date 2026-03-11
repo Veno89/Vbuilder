@@ -5,7 +5,7 @@ import { authService } from '@/modules/auth/application/auth-container';
 
 export async function POST(request: Request): Promise<Response> {
 
-  const rateLimit = enforceRateLimit({
+  const rateLimit = await enforceRateLimit({
     key: rateLimitKeyFromRequest(request, 'auth:signup'),
     limit: 10,
     windowMs: 60_000

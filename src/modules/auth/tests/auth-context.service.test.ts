@@ -7,7 +7,7 @@ describe('AuthContextService', () => {
       findValidByTokenHash: vi.fn().mockResolvedValue({ userId: 'user-1' })
     };
     const users = {
-      findById: vi.fn().mockResolvedValue({ id: 'user-1', isSuspended: false })
+      findById: vi.fn().mockResolvedValue({ id: 'user-1', email: 'user-1@example.com', isSuspended: false })
     };
 
     const service = new AuthContextService(sessions as never, users as never);
@@ -19,6 +19,7 @@ describe('AuthContextService', () => {
     const actor = await service.requireAuthenticatedActor(request);
 
     expect(actor.userId).toBe('user-1');
+    expect(actor.email).toBe('user-1@example.com');
     expect(sessions.findValidByTokenHash).toHaveBeenCalledTimes(1);
   });
 

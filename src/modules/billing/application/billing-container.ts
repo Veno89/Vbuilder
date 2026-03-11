@@ -16,13 +16,21 @@ const billingRepository = new BillingRepository(db);
 const starterPriceId = process.env.STRIPE_PRICE_STARTER ?? 'price_starter';
 const proPriceId = process.env.STRIPE_PRICE_PRO ?? 'price_pro';
 
+const planKeyToStripePriceId = (planKey: 'starter' | 'pro'): string => {
+  if (planKey === 'starter') {
+    return starterPriceId;
+  }
+
+  return proPriceId;
+};
+
 export const billingService = new BillingService(
   permissions,
   {
     async createCheckoutSession(input) {
       const session = await stripeClient.checkout.sessions.create({
         mode: 'subscription',
-        line_items: [{ price: input.priceId, quantity: 1 }],
+        line_items: [{ price: input.stripePriceId, quantity: 1 }],
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         metadata: {
@@ -85,6 +93,7 @@ export const billingService = new BillingService(
       await billingRepository.writeEntitlementSnapshot(input);
     }
   },
+  planKeyToStripePriceId,
   (priceId) => planFromStripePriceId(priceId, { starterPriceId, proPriceId }),
   env.APP_URL,
   auditLogWriter
