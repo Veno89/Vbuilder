@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthorizationError, NotFoundError } from '@/modules/shared/domain/errors';
 
 const requireAuthenticatedActor = vi.fn();
 const getAccount = vi.fn();
@@ -87,5 +88,43 @@ describe('settings account route boundary', () => {
     expect(response.status).toBe(429);
     expect(response.headers.get('Retry-After')).toBe('15');
     expect(updateAccountEmail).not.toHaveBeenCalled();
+  });
+
+  it('maps authorization failures to 403', async () => {
+    const { PATCH } = await import('./route');
+    updateAccountEmail.mockRejectedValue(new AuthorizationError('Current password is incorrect.'));
+
+    const response = await PATCH(
+      new Request('https://example.com/api/settings/account', {
+        method: 'PATCH',
+        body: JSON.stringify({ email: 'new@example.com' })
+      })
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it('maps not-found failures to 404', async () => {
+    const { GET } = await import('./route');
+    getAccount.mockRejectedValue(new NotFoundError('Authenticated user account was not found.'));
+
+    const response = await GET(new Request('https://example.com/api/settings/account'));
+
+    expect(response.status).toBe(404);
+  });
+
+  it('returns sanitized 500 for unexpected failures', async () => {
+    const { PATCH } = await import('./route');
+    updateAccountEmail.mockRejectedValue(new Error('db offline'));
+
+    const response = await PATCH(
+      new Request('https://example.com/api/settings/account', {
+        method: 'PATCH',
+        body: JSON.stringify({ email: 'new@example.com' })
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'Failed to update account settings.' });
   });
 });

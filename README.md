@@ -6,6 +6,7 @@ Production-grade SaaS starter platform foundation.
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev
 ```
 
@@ -15,4 +16,12 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run test
+npm run test:e2e
+```
+
+## Production run
+
+```bash
+npm run build
+npm run start
 ```

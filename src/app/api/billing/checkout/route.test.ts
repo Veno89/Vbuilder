@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 import { createCheckoutSessionSchema } from '@/modules/billing/schemas/billing.schemas';
+import { AuthorizationError, NotFoundError } from '@/modules/shared/domain/errors';
 
 const requireAuthenticatedActor = vi.fn();
 const createCheckoutSession = vi.fn();
@@ -78,5 +79,76 @@ describe('POST /api/billing/checkout route boundary', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Invalid request payload.' });
+  });
+
+  it('returns 429 with retry-after when rate limited', async () => {
+    const { POST } = await import('./route');
+    enforceRateLimit.mockResolvedValue({ allowed: false, retryAfterSeconds: 12 });
+
+    const response = await POST(
+      new Request('https://example.com/api/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '00000000-0000-0000-0000-000000000010',
+          planKey: 'starter'
+        })
+      })
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('12');
+    expect(createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('maps authorization failures to 403', async () => {
+    const { POST } = await import('./route');
+    createCheckoutSession.mockRejectedValue(new AuthorizationError('Missing permission: organization:billing.manage'));
+
+    const response = await POST(
+      new Request('https://example.com/api/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '00000000-0000-0000-0000-000000000010',
+          planKey: 'starter'
+        })
+      })
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it('maps not-found failures to 404', async () => {
+    const { POST } = await import('./route');
+    createCheckoutSession.mockRejectedValue(new NotFoundError('Organization was not found.'));
+
+    const response = await POST(
+      new Request('https://example.com/api/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '00000000-0000-0000-0000-000000000010',
+          planKey: 'starter'
+        })
+      })
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('returns sanitized 500 for unexpected failures', async () => {
+    const { POST } = await import('./route');
+    createCheckoutSession.mockRejectedValue(new Error('stripe unavailable'));
+
+    const response = await POST(
+      new Request('https://example.com/api/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '00000000-0000-0000-0000-000000000010',
+          planKey: 'starter'
+        })
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'Failed to create checkout session.' });
   });
 });
