@@ -1,129 +1,123 @@
-# Dev Kit Refactor Plan (Revised)
+# Dev Kit Refactor Plan (2026-03-12)
 
 ## Objective
-Refactor the current foundation into a credible starter MVP without rewriting the architecture.
+Upgrade Vbuilder from a strong internal prototype to a credible starter/dev-kit MVP and then to a commercially viable starter foundation.
 
 ---
 
-## Workstream 1 — Security & Trust Boundaries (Urgent)
+## Workstream A — Tenant Integrity Hardening (Urgent)
 
-### 1.1 Invitation acceptance identity binding
-- Add actor-email lookup in invitation acceptance flow.
-- Enforce case-insensitive recipient match.
-- Introduce explicit domain error (`invitation.recipient_mismatch`).
-- Add integration tests for valid/invalid/replay paths.
+### A1. Membership ownership invariants
+- Add explicit domain rules:
+  - owner cannot be removed via generic remove path,
+  - last-owner cannot be demoted/removed,
+  - ownership transfer is only path to owner changes.
+- Return explicit domain errors for invariant violations.
+- Add integration tests for every invalid transition.
 
-### 1.2 Billing checkout input hardening
-- Replace `priceId` request input with internal `planKey` enum.
-- Map planKey -> Stripe price in server-only config.
-- Reject unknown plan keys with stable error code.
-- Update route and service tests accordingly.
+### A2. Repository signaling
+- Membership update/remove should report whether target record existed.
+- Service layer should convert no-op writes into explicit not-found or invariant errors.
 
-### 1.3 Rate-limiter abstraction
-- Define shared `RateLimiter` interface.
-- Keep in-memory adapter for local tests.
-- Add distributed adapter for production.
-- Migrate high-risk endpoints to unified limiter wrapper.
-
-**DoD:** all three changes shipped with tests and no API trust boundary regressions.
+**Definition of Done**
+- Invariant checks are centralized, tested, and impossible to bypass through current APIs.
 
 ---
 
-## Workstream 2 — Operational Core Completion (Urgent)
+## Workstream B — API Platform Contract Standardization (Urgent)
 
-### 2.1 Notifications module (real)
-- Introduce concrete notifications module (provider adapter + templates).
-- Implement verification/reset/invite delivery.
-- Add logging and failure telemetry hooks.
-- Remove noop defaults from production containers.
+### B1. Route guard wrapper
+Create shared utilities for:
+- authenticated actor extraction,
+- rate-limit enforcement,
+- zod validation mapping,
+- standardized error-to-status mapping.
 
-### 2.2 Settings baseline
-- Add account settings API/service (profile + password change).
-- Add org settings API/service (name/slug update, permission-gated).
-- Provide minimal settings pages or clearly documented API-first behavior.
+### B2. Error policy
+- Introduce typed error codes (`code`, `message`, optional `details`).
+- Prevent leaking raw internal error text by default.
 
-### 2.3 Membership lifecycle invariants
-- Explicitly prevent owner-orphan edge states.
-- Add domain errors for illegal role/removal transitions.
-- Expand integration tests for lifecycle edge cases.
-
-**DoD:** starter has minimum usable self-service and operationally real core flows.
+**Definition of Done**
+- Critical API routes migrated to shared wrapper with consistent status/error payloads.
 
 ---
 
-## Workstream 3 — Reusability & Extensibility (Medium)
+## Workstream C — Ops/Support Core (Urgent)
 
-### 3.1 Entitlement registry
-- Move hardcoded entitlement map to typed catalog config.
-- Add startup validation for plan catalog consistency.
-- Document process to add plan/feature/limit.
+### C1. Audit read model
+- Add tenant-scoped audit list endpoint.
+- Add platform-admin scoped audit endpoint.
+- Enforce pagination and filtering.
 
-### 3.2 RBAC cleanup
-- Remove dead permissions or implement corresponding features.
-- Create endpoint-to-permission matrix and enforce via tests.
-- Add doc for extending roles/permissions safely.
+### C2. Admin support actions (minimum)
+- User lookup, org lookup, subscription lookup.
+- Recent webhook outcomes and failure diagnostics.
 
-### 3.3 Route cross-cutting utilities
-- Create shared response/error handler utility.
-- Create wrapper utility for auth + rate-limit composition.
-- Incrementally migrate API handlers.
-
-**DoD:** easier extension, reduced drift, less duplicate boilerplate.
+**Definition of Done**
+- Support teams can investigate auth/org/billing incidents without direct SQL access.
 
 ---
 
-## Workstream 4 — Admin, Audit, and Supportability (Medium)
+## Workstream D — Billing Reliability Hardening (High)
 
-### 4.1 Admin/support primitives
-- Add user/org/subscription lookup endpoints.
-- Add suspend/unsuspend admin actions with audit trails.
-- Add billing troubleshooting visibility (recent webhook outcomes).
+### D1. Reconciliation strategy
+- Implement periodic reconciliation job for Stripe subscription state.
+- Compare canonical internal subscriptions against Stripe and self-heal drift.
 
-### 4.2 Audit log read model
-- Build paginated query APIs (tenant/admin scoped).
-- Document event taxonomy and naming conventions.
-- Add retention/export plan notes.
+### D2. Lifecycle policies
+- Define and enforce downgrade/over-limit behavior.
+- Add explicit policy docs and tests.
 
-**DoD:** support teams can diagnose and act without direct DB access.
-
----
-
-## Workstream 5 — Testing & CI Hardening (Urgent -> Medium)
-
-### 5.1 API integration coverage
-- Auth/session edge behavior.
-- Tenant/RBAC enforcement per role.
-- Invite recipient checks.
-- Billing webhook replay/out-of-order handling.
-
-### 5.2 E2E golden path
-- Signup -> verify -> signin -> create org -> invite -> accept -> billing upgrade.
-
-### 5.3 CI gates
-- Enforce lint/typecheck/unit/integration/E2E smoke.
-- Publish test matrix in docs.
-
-**DoD:** refactors become safe and regressions are detectable early.
+**Definition of Done**
+- Billing state converges reliably even if webhooks are delayed/missed.
 
 ---
 
-## Recommended Sequencing (4 Sprints)
+## Workstream E — Reusability Contracts (High)
 
-### Sprint 1
-Workstream 1 (all) + Workstream 5.1 baseline.
+### E1. Entitlement/plan registry
+- Replace hardcoded entitlement map with typed config-driven catalog.
+- Startup validation for config consistency.
 
-### Sprint 2
-Workstream 2.1 + 2.2 + 5.2 golden path.
+### E2. RBAC extension contract
+- Formalize role-permission matrix management.
+- Remove or wire currently unused permission constants.
 
-### Sprint 3
-Workstream 2.3 + Workstream 3.1 + 3.2.
+### E3. Extension docs
+- “How to add a plan”, “how to add a role”, “how to add a module/provider”.
 
-### Sprint 4
-Workstream 3.3 + Workstream 4 + Workstream 5.3 + docs polish.
+**Definition of Done**
+- External team can safely extend core foundation without code archaeology.
 
 ---
 
-## Anti-Goals
-- No microservice rewrite.
-- No premature enterprise features before MVP blockers close.
-- No broad abstraction layering without concrete extension need.
+## Workstream F — Testing & Release Discipline (High)
+
+### F1. Test expansion
+- Add invariant tests for tenant lifecycle.
+- Add billing reconciliation/out-of-order cases.
+- Add admin/audit API boundary tests.
+
+### F2. CI gates
+- Add CI workflow: lint -> typecheck -> unit/integration -> e2e smoke (configurable).
+
+### F3. Release hygiene
+- Add starter changelog/versioning process.
+
+**Definition of Done**
+- Refactors are guarded by automated quality gates and release artifacts.
+
+---
+
+## Execution Order
+1. Workstreams A + B (first, trust and contract stability).
+2. Workstream C (operational safety).
+3. Workstream D + E (commercial starter credibility).
+4. Workstream F in parallel after A/B baseline.
+
+---
+
+## Anti-Patterns to Avoid During Refactor
+- No microservice decomposition.
+- No premature abstraction explosion.
+- No feature expansion before trust-boundary and operational blockers are closed.

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { ZodError } from 'zod';
 import { organizationService } from '@/modules/organizations/application/organization-container';
 import { authContextService } from '@/modules/auth/application/auth-container';
+import { toRouteErrorResponse } from '@/modules/shared/presentation/route-error-response';
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -10,11 +10,10 @@ export async function POST(request: Request): Promise<Response> {
     const result = await organizationService.create({ ...body, actorUserId: actor.userId });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ error: 'Invalid request payload.' }, { status: 400 });
-    }
-
-    const message = error instanceof Error ? error.message : 'Failed to create organization.';
-    return NextResponse.json({ error: message }, { status: 400 });
+    return toRouteErrorResponse(error, {
+      includeValidationError: true,
+      includeNotFoundError: true,
+      fallbackMessage: 'Failed to create organization.'
+    });
   }
 }

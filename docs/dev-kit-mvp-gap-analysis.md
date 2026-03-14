@@ -1,119 +1,75 @@
-# Dev Kit MVP Gap Analysis (Revised)
+# Dev Kit MVP Gap Analysis (2026-03-12)
 
-## Purpose
-Define the exact gap between current codebase state and a **credible reusable SaaS starter MVP**.
+## Target Definition: “Credible Starter/Dev-Kit MVP”
+A credible MVP starter must let a new team reliably do the following without rewriting core foundation systems:
+1. Set up environment and run locally with confidence.
+2. Onboard users securely (signup/verify/signin/reset).
+3. Create and manage organizations/teams with safe role transitions.
+4. Enforce tenant-scoped permissions server-side.
+5. Run billing + entitlements with trustworthy state sync.
+6. Operate/support the platform (admin + audit visibility).
+7. Extend plans/roles/modules using documented extension points.
 
----
-
-## A) MVP Bar (Non-Negotiable)
-A credible starter MVP must satisfy all:
-1. Production-operational identity lifecycle (verify/reset/invite comms actually delivered).
-2. Server-enforced tenant/RBAC boundaries with tested edge cases.
-3. Billing and entitlement trust boundaries controlled server-side.
-4. Minimal self-serve settings and minimal support/admin capabilities.
-5. Adoption-ready docs + setup + test proof.
-
----
-
-## B) Current State vs MVP Bar
-
-| Area | Current state | Gap severity | MVP blocker? |
-|---|---|---:|---:|
-| Notifications | Noop implementations wired in runtime containers | Critical | Yes |
-| Invite identity binding | Token + actor only; no explicit invited-email check | High | Yes |
-| Billing checkout trust | Accepts raw client `priceId` | High | Yes |
-| Rate limiting | In-memory only | High | Yes |
-| Settings | Largely absent | High | Yes |
-| Admin/support | Overview metrics only | Medium | Yes |
-| API boundary tests | Limited integration coverage | High | Yes |
-| E2E proof | Script exists; no committed specs | High | Yes |
-| Adoption docs | Partial and overstated in areas | Medium | Yes |
+Current codebase does **not** satisfy all seven conditions.
 
 ---
 
-## C) MVP Blockers With Acceptance Criteria
+## MVP-Critical Gaps (Blockers)
 
-### 1) Real notifications
-**Required:** Verification/reset/invite emails sent through real provider adapter.
+### 1) Membership/ownership invariants are not fully enforced
+- Current membership remove/update flows do not explicitly guard all owner-orphan edge cases in the service boundary.
+- Risk: inconsistent organization ownership and broken tenant governance.
+- MVP impact: **blocker**.
 
-**Accept when:**
-- [ ] Provider adapter enabled by env configuration.
-- [ ] Template payload contracts defined.
-- [ ] Failures logged with actionable context.
-- [ ] Tests cover notifier success/failure integration points.
+### 2) Operational visibility is insufficient
+- Audit logs are write-heavy but there is no first-class read/query API for support.
+- Admin only provides aggregate overview counts.
+- MVP impact: **blocker** (supportability gap).
 
-### 2) Invite identity hardening
-**Required:** Invitation acceptance checks recipient identity.
+### 3) Billing lifecycle robustness is partial
+- Webhook verification + idempotency exists, but no reconciliation loop for missed/delayed webhook scenarios.
+- Downgrade/over-limit policy behavior is not clearly codified as starter behavior.
+- MVP impact: **blocker** for trustworthiness.
 
-**Accept when:**
-- [ ] Invite email is matched against authenticated actor email (case-insensitive) or equivalent secure claim.
-- [ ] Mismatch returns explicit auth error.
-- [ ] Integration tests cover match/mismatch/replay cases.
+### 4) API platform contract is inconsistent
+- Repeated route boilerplate leads to inconsistent error mapping and status semantics.
+- Raw error messages are often returned directly to clients.
+- MVP impact: **blocker** for integrator trust and DX.
 
-### 3) Billing plan hardening
-**Required:** Client cannot submit arbitrary Stripe price IDs.
-
-**Accept when:**
-- [ ] API accepts internal plan key only.
-- [ ] Server maps plan key -> Stripe price ID.
-- [ ] Invalid plan key rejected deterministically.
-- [ ] Tests cover mapping and rejection paths.
-
-### 4) Distributed rate limiting
-**Required:** Production-safe limiter backend.
-
-**Accept when:**
-- [ ] Shared limiter interface supports adapters.
-- [ ] Non-memory adapter available for production.
-- [ ] Sensitive routes use unified limiter wiring.
-
-### 5) Settings baseline
-**Required:** Minimal reusable settings surfaces.
-
-**Accept when:**
-- [ ] Account settings: profile basics + password change.
-- [ ] Organization settings: name/slug update with permission checks.
-- [ ] Basic UI or API-only docs clearly provided.
-
-### 6) Test proof of critical paths
-**Required:** Refactoring-safe confidence on trust boundaries.
-
-**Accept when:**
-- [ ] API integration tests for auth/session/tenant/RBAC boundaries.
-- [ ] Billing webhook idempotency + replay/order tests.
-- [ ] One E2E golden path passes in CI.
-
-### 7) Adoption-ready docs
-**Required:** External team can onboard without reverse engineering.
-
-**Accept when:**
-- [ ] Setup/install/run docs are complete and truthful.
-- [ ] Architecture and extension seams documented.
-- [ ] Testing docs reflect actual suites.
+### 5) Reusability contracts are missing
+- Plans/entitlements are code-hardcoded.
+- Role/permission extension process is not formalized.
+- MVP impact: **blocker** for “starter kit” credibility.
 
 ---
 
-## D) Post-MVP Priorities (Strong Public Starter)
-1. Admin/support action surface (suspend user, org diagnostics, billing diagnostics).
-2. Audit-log query/read APIs with access controls.
-3. Structured error code system for client/support workflows.
-4. Seed/demo data flow and first-run script.
+## Important Gaps (Should land immediately after MVP blocker closure)
+
+1. Invite management completeness (list/revoke/resend, better UX states).
+2. User/org lifecycle actions (archive/delete/suspend semantics).
+3. Notification template/version management and retry strategy.
+4. Deterministic CI pipeline with e2e smoke.
+5. Better onboarding/adoption docs and extension cookbook.
 
 ---
 
-## E) Deferred / Premium Track
-1. SSO/SAML.
+## Nice-to-Have / Later (Not MVP blockers)
+
+1. SSO/SAML scaffolding.
 2. API keys/service accounts.
-3. Usage-based billing.
-4. Advanced feature-flag platform.
+3. Usage-based billing primitives.
+4. Feature-flag management system.
+5. Advanced admin moderation and support tooling.
 
 ---
 
-## F) Suggested MVP Sequence
-1. Security boundary fixes (invite + billing + limiter).
-2. Notification operationalization.
-3. Settings baseline.
-4. Test hardening (integration + E2E).
-5. Adoption docs alignment.
+## Blocking Milestone Summary
 
-If all five sequence groups are complete, this project can credibly claim “starter MVP”.
+The codebase becomes a credible starter MVP only when all are true:
+- Ownership/member invariants are explicit and tested.
+- Admin + audit read tooling supports practical operations.
+- Billing has reconciliation and explicit lifecycle policies.
+- API error/auth/rate-limit handling is standardized.
+- Plans/roles/extensions are documented and configuration-driven.
+
+Until then, this remains a strong foundation prototype—not a reliable reusable starter product.

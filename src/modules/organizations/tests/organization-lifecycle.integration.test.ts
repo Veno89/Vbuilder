@@ -4,7 +4,7 @@ import { InvitationService } from '@/modules/invitations/application/invitation.
 import { MembershipService } from '@/modules/memberships/application/membership.service';
 import { hashToken } from '@/modules/auth/domain/token';
 import { AuthorizationError } from '@/modules/shared/domain/errors';
-import type { MembershipRole } from '@/modules/memberships/infrastructure/membership.repository';
+import type { MembershipRole } from '@/modules/memberships/domain/membership.types';
 
 type OrganizationRecord = {
   id: string;
@@ -68,10 +68,13 @@ describe('Organization/Invitation/Membership integration invariants', () => {
         const existing = store.memberships.get(key);
         if (existing) {
           store.memberships.set(key, { ...existing, role: input.role });
+          return true;
         }
+
+        return false;
       },
       async remove(organizationId: string, userId: string) {
-        store.memberships.delete(membershipKey(organizationId, userId));
+        return store.memberships.delete(membershipKey(organizationId, userId));
       }
     };
 
@@ -305,10 +308,10 @@ describe('Organization/Invitation/Membership integration invariants', () => {
         return store.memberships.get(membershipKey(organizationId, userId)) ?? null;
       },
       async updateRole() {
-        return;
+        return true;
       },
       async remove() {
-        return;
+        return true;
       }
     };
 
