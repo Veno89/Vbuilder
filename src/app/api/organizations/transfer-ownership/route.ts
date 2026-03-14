@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { ZodError } from 'zod';
 import { authContextService } from '@/modules/auth/application/auth-container';
 import { organizationService } from '@/modules/organizations/application/organization-container';
+import { toRouteErrorResponse } from '@/modules/shared/presentation/route-error-response';
 import { enforceRateLimit, rateLimitKeyFromRequest } from '@/modules/shared/security/rate-limit';
 
 export async function POST(request: Request): Promise<Response> {
@@ -24,12 +24,10 @@ export async function POST(request: Request): Promise<Response> {
     await organizationService.transferOwnership({ ...body, actorUserId: actor.userId });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ error: 'Invalid request payload.' }, { status: 400 });
-    }
-
-    const message =
-      error instanceof Error ? error.message : 'Failed to transfer organization ownership.';
-    return NextResponse.json({ error: message }, { status: 400 });
+    return toRouteErrorResponse(error, {
+      includeValidationError: true,
+      includeNotFoundError: true,
+      fallbackMessage: 'Failed to transfer organization ownership.'
+    });
   }
 }

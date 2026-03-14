@@ -1,7 +1,7 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { DatabaseClient } from '@/server/db/client';
 import { invitations } from '@/server/db/schema';
-import type { MembershipRole } from '@/modules/memberships/infrastructure/membership.repository';
+import type { MembershipRole } from '@/modules/memberships/domain/membership.types';
 
 export type InvitationRecord = {
   id: string;

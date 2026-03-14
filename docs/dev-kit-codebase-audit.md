@@ -1,330 +1,337 @@
-# Dev Kit Codebase Audit (Revised)
+# Dev Kit Codebase Audit (2026-03-12)
 
-Date: 2026-03-10  
-Scope: Entire repository under `/workspace/Vbuilder`
+Scope audited: entire repository under `/workspace/Vbuilder` (code, tests, docs, config, migrations).
 
----
+## 1. Executive Summary
 
-## 1) Executive Summary
+### Overall health
+This codebase is **promising but not yet a true “commercially credible SaaS starter/dev kit.”** It is best described as a **well-structured backend-first foundation with partial product surfaces**.
 
-### Verdict (blunt)
-This repository is **not yet a credible public SaaS starter/dev-kit MVP**. It is a **strong backend foundation prototype** with good architectural instincts but substantial productization gaps.
+### Honest maturity level
+- **Architecture maturity:** decent modular monolith baseline.
+- **Foundation feature maturity:** partial (strong auth/org primitives, thin ops/admin/product UX).
+- **Starter-kit maturity:** below MVP for external adopters.
 
-### Maturity rating
-| Dimension | Score (0-10) | Notes |
-|---|---:|---|
-| Architecture shape | 7 | Modular monolith boundaries are visible and mostly respected. |
-| Security baseline | 6 | Good defaults in several flows, but trust-boundary gaps remain. |
-| Multi-tenant correctness | 6 | Core org write paths are server-checked; read/ops surfaces are thin. |
-| Billing trustworthiness | 5 | Webhook idempotency exists; checkout trust model is too permissive. |
-| Reusability as starter kit | 4 | Heavy hardcoding, weak extension docs, missing operational modules. |
-| Commercial readiness | 3 | Missing real notifications, support tooling, and adoption ergonomics. |
+### Is this a real starter/dev-kit MVP today?
+**Not yet.**
 
 ### Biggest strengths
-1. Clear service/repository layering across modules.
-2. Strong schema baseline for core SaaS primitives.
-3. Substantial unit test coverage in domain/application services.
+- Clear module separation (`auth`, `organizations`, `memberships`, `invitations`, `billing`, etc.).
+- Good server-side authorization posture in core mutation flows via `OrgPermissionService`.
+- Strong unit/integration/API-boundary test footprint (83 passing tests across 30 files).
+- Security-aware defaults in multiple areas (token hashing, Stripe signature verification, session cookie HTTP-only).
 
-### Biggest blockers
-1. Notification/email delivery is effectively non-functional in production wiring.
-2. Billing checkout model trusts client-provided Stripe `priceId`.
-3. Invitation acceptance does not explicitly bind invite email to actor identity.
-4. In-memory rate limiting is insufficient for distributed deployments.
-5. Documentation overclaims capability breadth versus implemented reality.
+### Biggest weaknesses
+- Product surface is extremely thin (almost no usable frontend beyond home/admin demo).
+- Multiple critical lifecycle gaps (membership invariants, invite/billing/admin operational depth).
+- Mixed error contracts and repeated route boilerplate.
+- Entitlements/plans are still hardcoded in domain code (not a reusable starter configuration model).
+- Docs still overstate “production-grade” readiness versus actual adoption ergonomics.
 
----
-
-## 2) Current State of the Dev Kit
-
-### What exists (fact-based)
-- Next.js App Router app + TS strict mode.
-- Drizzle schema + migrations for auth/org/membership/invite/billing/audit/admin primitives.
-- API routes for auth, organizations, invitations, memberships, billing, admin overview.
-- Domain services for auth, organizations, invitations, memberships, permissions, entitlements, billing, admin.
-- Vitest suite with broad unit tests + one integration suite.
-
-### What is incomplete vs starter-kit expectations
-- No production notification provider integration (noop notifiers in containers).
-- No committed Playwright E2E tests despite script/docs references.
-- No end-user account/org settings product surface.
-- Minimal admin/support surface (overview counts only).
-- Limited onboarding/adoption docs for external teams.
-
-### Prototype vs starter signal
-Current quality level is **internal foundation prototype** rather than external-ready starter kit.
+### Blunt conclusion
+This is a **solid internal foundation prototype**. It is **not yet a credible paid starter kit** and is only a **partial MVP starter** for experienced teams willing to finish major gaps themselves.
 
 ---
 
-## 3) MVP Gap Analysis (Starter-Kit Lens)
+## 2. Current State of the Dev Kit
 
-### MVP-critical gaps (must close before claiming starter MVP)
-1. Real transactional email flow for verify/reset/invite.
-2. Harden invitation acceptance identity binding.
-3. Harden billing checkout plan input boundary.
-4. Replace in-memory limiter with distributed adapter option.
-5. Deliver minimal account + organization settings surfaces.
-6. Add at least one true E2E golden path and API boundary integration tests.
-7. Align docs to actual implementation status.
+### What exists today
+- Next.js 14 App Router + TS strict codebase.
+- Drizzle/Postgres schema for users, sessions, organizations, memberships, invites, subscriptions, entitlements snapshots, audit logs, and admin notes.
+- Server-side API routes for auth, organizations, invitations, memberships, billing, admin overview, settings.
+- Service/repository layering across most modules.
+- Notification provider integration (Resend) + optional dev inbox capture.
+- Unit/integration/API-route tests and optional Playwright E2E golden path.
 
-### Important for strong public starter (after MVP)
-- Admin/support tooling depth.
-- Audit-log query/read model.
-- Config-driven plan/entitlement and clearer extension seams.
-- Structured error contract and observability guidance.
+### What is incomplete
+- No true end-user UI flows for auth/org settings/billing/team management (mostly API-first backend).
+- Minimal admin/support functionality (overview counts only).
+- No audit log read/query surface.
+- No invite list/revoke/resend, no org deletion/suspension lifecycle.
+- No CI workflow files / pipeline definition in repo.
 
-### Nice-to-have / premium later
-- SSO/SAML scaffolding.
-- API key + service account framework.
-- Usage-based billing and advanced feature-flagging.
-
----
-
-## 4) Architecture Assessment
-
-### What is good
-- Modules are clearly separated (`auth`, `organizations`, `memberships`, `billing`, etc.).
-- Business logic mostly sits in application services rather than routes.
-- Repositories isolate persistence details.
-
-### What is weak
-- Some duplicate cross-cutting abstractions (`TenantAccessService` overlaps org permission checks).
-- Container wiring hides noop-vs-real behavior and can mislead adopters.
-- Route handlers duplicate repetitive auth/rate-limit/error plumbing.
-
-### Architectural maturity
-**Decent but immature.** Good spine, insufficient product-grade guardrails and extension patterns.
+### Reusable vs app-specific reality
+- **Reusable:** service/repository layering, schema primitives, route-level validation, auth/billing core mechanics.
+- **App-specific:** hardcoded plans/features, action naming, organization-centric assumptions without extension docs, minimal configuration strategy.
 
 ---
 
-## 5) Core Systems Review
+## 3. MVP Gap Analysis
+
+### Credible starter MVP requires
+1. Trustworthy auth + team + billing primitives.
+2. Tenant-safe authorization in every write path.
+3. Usable account/org settings baseline.
+4. Essential operational tooling (admin + audit visibility).
+5. Reliable onboarding docs and local setup/testing reproducibility.
+
+### What is missing / incomplete
+- Membership lifecycle guardrails are incomplete (owner removal/orphan edge cases are not explicitly prevented in service layer).
+- Invite lifecycle is incomplete (no resend/revoke/list, acceptance depends on actor email match but no conflict UX/state recovery).
+- Billing lifecycle coverage is partial (no reconciliation job, no clear downgrade/over-limit policy handling).
+- Admin/support is too shallow for real operations.
+- Starter adoption docs do not provide full “clone -> configure -> run -> extend” workflow quality.
+
+### Must be fixed first
+- Ownership/member invariants.
+- Operational read models (admin/audit).
+- Plan/entitlement configuration model.
+- Consistent error contract and route wrappers.
+- CI quality gates + deterministic E2E path.
+
+---
+
+## 4. Architecture Assessment
+
+### Module boundaries
+Overall good module segmentation, but boundaries are not equally mature. Some modules are robust (`auth`, `billing`), some are scaffolds (`admin`, `settings` UX).
+
+### Modular monolith quality
+- **Positive:** orchestration mostly in services, persistence in repositories.
+- **Negative:** route handlers duplicate auth/rate-limit/error logic repeatedly; cross-cutting concerns are not centralized.
+
+### Coupling concerns
+- `OrgPermissionService` and `TenantAccessService` overlap conceptually, increasing drift risk.
+- Plan and entitlement definitions are tightly coupled to billing implementation details.
+
+### Extensibility concerns
+- No formal extension contracts for adding plans/roles/providers/modules.
+- Hardcoded plan map and entitlement map create change friction.
+
+### Reusability concerns
+Adopters must reverse-engineer conventions from code; explicit extension points and platform contracts are under-documented.
+
+---
+
+## 5. Core Systems Review
 
 ### Auth
-- **State:** signup/signin/logout, verify-email, forgot/reset-password, session cookie.
-- **Strengths:** hashed password/token strategy; revoked-session checks.
-- **Gaps:** no real mail delivery; required env key suggests NextAuth but implementation is custom.
-- **Priority:** Urgent.
+- **Purpose:** identity, sessions, verification, reset.
+- **Current state:** strong backend primitives with hashed tokens/passwords and session revocation on new login.
+- **Major findings:** good baseline, but email-change verification lifecycle is incomplete (email changed to unverified without re-verification workflow).
+- **Risks:** account lockout/support burden, uneven UX/API semantics.
+- **Missing behavior:** profile lifecycle (delete/export/suspend self-service), OAuth/SSO extensibility seams.
+- **Refactor need:** medium.
+- **Priority:** high.
 
 ### Users
-- **State:** basic persistence via auth repositories.
-- **Gaps:** no user profile/account lifecycle module (update/delete/export/suspend UX).
-- **Priority:** Medium.
+- **Current state:** mostly implicit through auth/settings repositories.
+- **Finding:** no dedicated user domain module behavior beyond auth basics.
+- **Priority:** medium.
 
 ### Organizations
-- **State:** create + ownership transfer implemented.
-- **Gaps:** missing organization settings/update lifecycle and archival/deletion policy.
-- **Priority:** Medium.
+- **Current state:** create + transfer ownership.
+- **Finding:** no archive/delete lifecycle; no org list/read APIs for normal users.
+- **Priority:** high.
 
 ### Memberships
-- **State:** role update + remove implemented.
-- **Gaps:** explicit owner-state invariant protection should be hardened and tested for edge transitions.
-- **Priority:** Urgent.
+- **Current state:** update role/remove with permission checks.
+- **Finding:** repository updates/removals are silent if target does not exist; owner-protection invariants are not explicit in membership service.
+- **Priority:** urgent.
 
 ### Invitations
-- **State:** send/accept/decline with token hashing and single-use semantics.
-- **Gaps:** missing explicit invite-email-to-actor binding, resend/revoke/list flows.
-- **Priority:** Urgent.
+- **Current state:** send/accept/decline with token hash, expiry, single-use state.
+- **Finding:** good identity-binding on accept; missing full invitation management surface.
+- **Priority:** high.
 
 ### Permissions / RBAC
-- **State:** central role->permission matrix and guard service.
-- **Gaps:** unused/underused permission values increase drift risk; no extension guidance.
-- **Priority:** Medium.
+- **Current state:** centralized role-permission map.
+- **Finding:** some permissions appear unused (`admin:access`, `members:read`, `app:use`) in route/service enforcement, creating drift potential.
+- **Priority:** medium.
 
-### Billing / Stripe
-- **State:** checkout, portal, webhook verification, idempotent event recording.
-- **Gaps:** client passes raw `priceId`; lifecycle coverage (failed payments, downgrade rules) incomplete.
-- **Priority:** Urgent.
+### Billing
+- **Current state:** checkout, portal, webhook verify/idempotency, subscription upsert, entitlement snapshot writes.
+- **Finding:** strong baseline; still lacks full lifecycle handling (failed payments, retries, reconciliation job, cancellation edge behavior).
+- **Priority:** high.
 
 ### Entitlements
-- **State:** hardcoded plan limits and feature flags; member-limit enforced on invite send.
-- **Gaps:** no registry/config model for scalable extension.
-- **Priority:** Medium.
+- **Current state:** hardcoded in domain map; enforced on invitation path.
+- **Finding:** not config-driven; no generalized enforcement middleware/policy layer.
+- **Priority:** high.
 
-### Admin / Support
-- **State:** allowlisted admin overview endpoint + thin dashboard page.
-- **Gaps:** no actionable support tooling, no admin-note workflows despite schema table.
-- **Priority:** Urgent.
+### Admin
+- **Current state:** allowlist-based access + overview counts.
+- **Finding:** insufficient support tooling for production ops.
+- **Priority:** high.
 
 ### Audit logs
-- **State:** write-path integrated in key services.
-- **Gaps:** no query/read path, no event schema catalog/versioning.
-- **Priority:** Medium.
+- **Current state:** write-side implemented broadly.
+- **Finding:** no read/query API or support tooling; logs are write-only for operators.
+- **Priority:** high.
 
-### Notifications/email
-- **State:** interface exists, runtime uses noop implementations.
-- **Gaps:** effectively not implemented.
-- **Priority:** Urgent.
+### Notifications / email
+- **Current state:** Resend adapter wired, dev inbox helper.
+- **Finding:** templates are inline strings; no template/version management; no retry/queue strategy.
+- **Priority:** medium.
 
 ### Settings
-- **State:** largely absent.
-- **Gaps:** account/org settings are starter-kit baseline requirements.
-- **Priority:** Urgent.
+- **Current state:** account read/update email, password change, org name/slug update.
+- **Finding:** API exists, but no user-facing settings UX and no broader lifecycle flows.
+- **Priority:** medium.
 
 ### Shared/core infrastructure
-- **State:** simple error types + in-memory rate limit helper.
-- **Gaps:** distributed abuse protection missing.
-- **Priority:** Urgent.
+- **Current state:** env validation, rate limiting abstraction.
+- **Finding:** in-memory fallback acceptable for local dev but not enough as default posture for serious distributed starter deployments.
+- **Priority:** high.
 
 ---
 
-## 6) Reusability / Starter Suitability Review
+## 6. Reusability / Starter Suitability Review
 
-### Reusable qualities
-- Clear module structure and service contracts.
-- Strong baseline schema for common B2B SaaS entities.
+### What makes it reusable
+- Consistent module layering and schema-backed domain primitives.
+- Separation between service orchestration and persistence.
 
-### Too app-specific today
-- Hardcoded plans and entitlements.
-- Hardcoded admin access model (email allowlist).
-- Narrow product surface gives little “starter” utility out of the box.
+### What keeps it too app-specific
+- Hardcoded plans/features.
+- Organization-first assumptions without adapters for alternate tenant models.
+- Minimal implementation guidance for adopters.
 
-### What must be generalized
-1. Plan/entitlement catalog.
-2. Notification provider + templates.
-3. Authorization extension model.
-4. Starter extension cookbook docs.
+### What needs generalization
+- Plan/entitlement catalog.
+- Cross-cutting route wrapper (auth, rate-limit, standardized errors).
+- Provider interfaces and fallback strategies documented as starter contracts.
+
+### What needs clearer extension points
+- Add-new-role process.
+- Add-new-plan process.
+- Add-new-domain-module process.
+- Add-new-notification provider/template process.
 
 ---
 
-## 7) Quality Principles Review
+## 7. Quality Principles Review
 
 ### SOLID
-- SRP is reasonable in many services.
-- OCP is weak in RBAC/plans due to hardcoded matrices.
-- DIP is partial: interfaces exist but runtime composition remains rigid.
+- **SRP:** mostly good in service classes; weak in route handlers due to repeated mixed concerns.
+- **OCP:** weak for plans/entitlements; changes require code edits in multiple places.
+- **DIP:** good in several modules (service depends on interfaces), but some repositories are directly instantiated in containers without formal composition boundaries.
 
 ### DRY
-- Permission checks centralized well.
-- API handlers duplicate common error/rate-limit/auth boilerplate.
+- Repeated API boilerplate (auth extraction, rate limit, Zod errors, generic catch).
+- Duplicated permission-check patterns spread across routes/services.
 
 ### KISS
-- Domain code is readable.
-- Some simplicity is too weak for infra-grade reliability (in-memory limiter, noop notifications).
+- Generally simple and readable.
+- But too-simple admin/support/audit surfaces for a “production-grade starter” claim.
 
 ### Separation of concerns
-- Good: route -> service -> repository flow.
-- Weak: repeated cross-cutting concerns in route handlers.
+- Mostly healthy in backend modules.
+- Frontend is too skeletal to validate end-to-end separation quality for real product flows.
+
+### Naming/clarity/consistency
+- Domain naming is mostly clear.
+- Error semantics/status codes vary route-to-route and can confuse API consumers.
 
 ---
 
-## 8) Security / Multi-Tenancy / Reliability Findings
+## 8. Security / Multi-Tenancy / Reliability Findings
 
-### Security risks (high)
-1. Checkout accepts arbitrary client-provided Stripe `priceId`.
-2. Invitation acceptance missing explicit recipient-email verification.
+### Trust boundary findings
+- Good: server-side actor derivation from session cookie in most protected routes.
+- Risk: generic catch blocks surface raw error messages as client payloads in many routes.
 
-### Multi-tenant risks (medium)
-1. Core write paths are guarded, but read/ops surfaces are underdeveloped.
-2. Thin admin model can become unsafe if expanded ad hoc.
+### Tenant boundary findings
+- Good: org permission checks enforced before critical org mutations.
+- Risk: missing invariant protections on membership removals/role updates can create inconsistent tenant state.
 
-### Reliability risks (high)
-1. In-memory limiter fails under multi-instance deployments.
-2. No robust retry/reconciliation strategy for asynchronous workflows.
+### Reliability/failure modes
+- Webhook idempotency implemented, but no explicit reconciliation loop for missed events.
+- Token consume flows (verification/reset) are read-then-update rather than single atomic update query; race probability is low but real under concurrency.
 
 ---
 
-## 9) Testing and QA Findings
+## 9. Testing and QA Findings
 
 ### Current state
-- Unit tests: broad coverage across major services.
-- Integration tests: limited (primarily org lifecycle invariants).
-- E2E: configured script but no committed specs.
+- Strong unit/service coverage.
+- Useful integration tests around org lifecycle.
+- API boundary tests for selected routes.
 
-### High-priority test gaps
-1. API authz boundary tests (role + tenant scopes).
-2. Billing webhook replay/order failure tests.
-3. Invite identity-binding tests.
-4. End-to-end golden path from signup to paid tenant.
+### Critical gaps
+- E2E remains opt-in and skipped unless environment variable is set.
+- Missing broader failure-mode tests (webhook out-of-order/missing reconciliation, membership owner edge cases, admin misuse scenarios).
 
----
-
-## 10) Dead Code / Cleanup Findings
-
-1. `TenantAccessService` appears unused and duplicates permission concerns.
-2. `admin_notes` table has no module-level behavior.
-3. `NEXTAUTH_SECRET` required in env despite custom auth implementation.
-4. Docs mention capabilities not actually shipped (e.g., E2E coverage claims).
+### Test priorities
+1. Owner/membership invariant tests.
+2. Billing lifecycle/reconciliation tests.
+3. End-to-end flows that include settings/invites/billing transitions.
 
 ---
 
-## 11) Prioritized Refactor Plan (Condensed)
+## 10. Dead Code / Cleanup Findings
+
+Likely cleanup targets:
+- `TenantAccessService` appears unused.
+- Permission constants likely unused in enforcement paths (`admin:access`, `members:read`, `app:use`).
+- Documentation language claiming “production-grade” should be softened until roadmap blockers are closed.
+
+---
+
+## 11. Prioritized Refactor Plan
 
 ### Urgent
-- Implement real notifications.
-- Harden invite acceptance identity check.
-- Replace client `priceId` input with internal plan key mapping.
-- Add distributed rate limiter adapter.
-- Ship minimal settings module.
-- Add API boundary integration tests + E2E golden path.
+1. Enforce membership ownership invariants in service + repository (prevent owner orphaning).
+2. Introduce standardized API route wrapper for auth/rate-limit/error mapping.
+3. Build audit-log read/query APIs and basic admin support views.
+4. Add reconciliation strategy for billing webhook gaps.
 
 ### Medium
-- Expand admin/support tools.
-- Add audit log read/query model.
-- Externalize entitlement/plan configuration.
-- Unify duplicated access-control abstractions.
+1. Convert entitlements/plans to typed config registry.
+2. Consolidate overlapping tenant access abstractions.
+3. Implement notification template system + retry/queue strategy.
 
 ### Low
-- Introduce route wrapper utilities for shared concerns.
-- Add background cleanup/reconciliation jobs.
+1. Theming/branding starter controls.
+2. Advanced admin workflows and premium modules.
 
 ---
 
-## 12) Prioritized Roadmap (Phased)
+## 12. Prioritized Roadmap
 
-### Phase 1: Starter MVP blockers
-Security + operational essentials + test proof.
+### Phase 1: starter MVP blockers
+- Membership invariant hardening.
+- Standardized API error/auth/rate-limit infrastructure.
+- Minimum audit/admin operational visibility.
+- Deterministic E2E in CI.
 
-### Phase 2: Launch-quality hardening
-Supportability, docs, error contracts, observability baseline.
+### Phase 2: launch-quality hardening
+- Plan/entitlement config registry.
+- Billing reconciliation and richer lifecycle handling.
+- Invite management completeness (list/revoke/resend).
 
-### Phase 3: Commercial-quality starter
-Configurability, reliability depth, stronger CI/test matrix.
+### Phase 3: commercial-quality starter improvements
+- Extension cookbooks and explicit contracts.
+- Operational observability/telemetry/error tracking guidance.
+- Versioned starter release discipline.
 
-### Phase 4: Advanced/premium
-Enterprise auth, API keys, advanced billing, feature management.
-
----
-
-## 13) Quick Wins
-
-1. Correct docs to match shipped behavior.
-2. Restrict checkout to server-known plan keys.
-3. Enforce invitation recipient identity.
-4. Remove dead/unused permissions/services/env confusion.
-5. Introduce shared route utilities to reduce duplication.
-
----
-
-## 14) High-Risk Areas (If Ignored)
-
-1. Billing trust boundary.
-2. Invitation token misuse risk.
-3. Operational non-readiness from noop notifications.
-4. Inadequate distributed abuse controls.
-5. Documentation trust erosion.
+### Phase 4: advanced/premium expansion
+- SSO/SAML scaffolding.
+- API keys/service accounts.
+- Usage-based billing primitives.
 
 ---
 
-## 15) Evidence Appendix (Key Proof Points)
+## 13. Quick Wins
 
-- Noop notifier wiring in auth/invitations containers: 
-  - `src/modules/auth/application/auth-container.ts`
-  - `src/modules/invitations/application/invitation-container.ts`
-- Client-supplied checkout `priceId` path:
-  - `src/modules/billing/schemas/billing.schemas.ts`
-  - `src/modules/billing/application/billing.service.ts`
-  - `src/app/api/billing/checkout/route.ts`
-- Invite accept flow lacking email binding:
-  - `src/modules/invitations/application/invitation.service.ts`
-- In-memory limiter implementation:
-  - `src/modules/shared/security/rate-limit.ts`
-- Missing E2E specs despite script/docs:
-  - `package.json` (`test:e2e` script)
-  - absence of Playwright test files in repository
-- Minimal admin surface:
-  - `src/modules/admin/application/admin.service.ts`
-  - `src/modules/admin/infrastructure/admin.repository.ts`
-  - `src/app/admin/page.tsx`
-- Potential drift indicators:
-  - `src/modules/shared/application/tenant-access.service.ts`
-  - `src/server/env.ts` (`NEXTAUTH_SECRET`)
-  - `docs/testing.md` (E2E wording)
+1. Add a shared `withApiGuard` helper for auth/rate-limit/Zod/error mapping.
+2. Add owner-removal/last-owner checks with explicit domain errors.
+3. Add “audit log list” endpoint for org and platform admins.
+4. Add CI script that runs lint + typecheck + tests + optional e2e smoke.
+5. Document a strict “starter contract” for plans, roles, and module extension.
+
+---
+
+## 14. High-Risk Areas
+
+1. **Membership/ownership lifecycle correctness** (tenant integrity risk).
+2. **Billing synchronization reliability** (revenue/support risk).
+3. **Operational support blind spots** (no real admin/audit inspection).
+4. **Inconsistent API error semantics** (integration and DX risk).
+5. **Starter adoption ambiguity** (commercial credibility risk).
+
+---
+
+## 15. Final Verdict
+
+This project is **on the right technical trajectory**, but today it is **not yet a serious public SaaS starter/dev-kit MVP** for most teams. The architecture is good enough to build on; the missing pieces are mostly **productization, operational completeness, and explicit starter contracts**. The smartest next actions are to harden tenant invariants, operational visibility, and reusable configuration surfaces before adding more features.

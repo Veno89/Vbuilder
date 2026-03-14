@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthorizationError, NotFoundError } from '@/modules/shared/domain/errors';
 
 const requireAuthenticatedActor = vi.fn();
 const changePassword = vi.fn();
@@ -57,5 +58,57 @@ describe('settings account password route boundary', () => {
         newPassword: 'new-password-123'
       })
     );
+  });
+
+  it('maps authorization failures to 403', async () => {
+    const { POST } = await import('./route');
+    changePassword.mockRejectedValue(new AuthorizationError('Current password is incorrect.'));
+
+    const response = await POST(
+      new Request('https://example.com/api/settings/account/password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: 'current-password-123',
+          newPassword: 'new-password-123'
+        })
+      })
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it('maps not-found failures to 404', async () => {
+    const { POST } = await import('./route');
+    changePassword.mockRejectedValue(new NotFoundError('Authenticated user account was not found.'));
+
+    const response = await POST(
+      new Request('https://example.com/api/settings/account/password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: 'current-password-123',
+          newPassword: 'new-password-123'
+        })
+      })
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('returns sanitized 500 for unexpected failures', async () => {
+    const { POST } = await import('./route');
+    changePassword.mockRejectedValue(new Error('db offline'));
+
+    const response = await POST(
+      new Request('https://example.com/api/settings/account/password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: 'current-password-123',
+          newPassword: 'new-password-123'
+        })
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'Failed to update password.' });
   });
 });

@@ -1,6 +1,7 @@
-import type { AuditLogWriter } from '@/modules/audit-logs/domain/audit-log.types';
-import type { OrgPermissionGuard } from '@/modules/permissions/application/org-permission.service';
-import { MembershipRepository, type MembershipRole } from '../infrastructure/membership.repository';
+import { AuthorizationError, NotFoundError } from '@/modules/shared/domain/errors';
+import type { AuditLogEvent } from '@/modules/audit-logs/domain/audit-log.types';
+import type { Permission } from '@/modules/permissions/domain/permissions';
+import type { MembershipRecord, MutableMembershipRole } from '../domain/membership.types';
 import {
   removeMembershipSchema,
   updateMembershipRoleSchema,
@@ -8,11 +9,42 @@ import {
   type UpdateMembershipRoleInput
 } from '../schemas/membership.schemas';
 
+type MembershipRepositoryPort = {
+  findByOrganizationAndUser(organizationId: string, userId: string): Promise<MembershipRecord | null>;
+  updateRole(input: {
+    organizationId: string;
+    userId: string;
+    role: MutableMembershipRole;
+  }): Promise<boolean>;
+  remove(organizationId: string, userId: string): Promise<boolean>;
+};
+
+type OrgPermissionGuardPort = {
+  requireOrgPermission(input: {
+    actorUserId: string;
+    organizationId: string;
+    permission: Permission;
+  }): Promise<void>;
+};
+
+type MembershipAuditAction = 'membership.role_updated' | 'membership.removed';
+
+type MembershipAuditEvent = Omit<AuditLogEvent, 'action' | 'targetType'> & {
+  actorUserId: string;
+  organizationId: string;
+  action: MembershipAuditAction;
+  targetType: 'membership';
+};
+
+type AuditLogWriterPort = {
+  write(input: MembershipAuditEvent): Promise<void>;
+};
+
 export class MembershipService {
   constructor(
-    private readonly memberships: MembershipRepository,
-    private readonly permissions: OrgPermissionGuard,
-    private readonly auditLogs: AuditLogWriter
+    private readonly memberships: MembershipRepositoryPort,
+    private readonly permissions: OrgPermissionGuardPort,
+    private readonly auditLogs: AuditLogWriterPort
   ) {}
 
   async updateRole(input: UpdateMembershipRoleInput & { actorUserId: string }): Promise<void> {
@@ -24,11 +56,30 @@ export class MembershipService {
       permission: 'members:role.update'
     });
 
-    await this.memberships.updateRole({
+    const targetMembership = await this.memberships.findByOrganizationAndUser(
+      parsed.organizationId,
+      parsed.targetUserId
+    );
+
+    if (!targetMembership) {
+      throw new NotFoundError('Target membership was not found.');
+    }
+
+    if (targetMembership.role === 'owner') {
+      throw new AuthorizationError(
+        'Owner role updates must be performed through the ownership transfer workflow.'
+      );
+    }
+
+    const updated = await this.memberships.updateRole({
       organizationId: parsed.organizationId,
       userId: parsed.targetUserId,
-      role: parsed.role as MembershipRole
+      role: parsed.role
     });
+
+    if (!updated) {
+      throw new NotFoundError('Target membership was not found.');
+    }
 
     await this.auditLogs.write({
       actorUserId: input.actorUserId,
@@ -49,7 +100,26 @@ export class MembershipService {
       permission: 'members:remove'
     });
 
-    await this.memberships.remove(parsed.organizationId, parsed.targetUserId);
+    const targetMembership = await this.memberships.findByOrganizationAndUser(
+      parsed.organizationId,
+      parsed.targetUserId
+    );
+
+    if (!targetMembership) {
+      throw new NotFoundError('Target membership was not found.');
+    }
+
+    if (targetMembership.role === 'owner') {
+      throw new AuthorizationError(
+        'Owner removal must be performed through the ownership transfer workflow.'
+      );
+    }
+
+    const removed = await this.memberships.remove(parsed.organizationId, parsed.targetUserId);
+    if (!removed) {
+      throw new NotFoundError('Target membership was not found.');
+    }
+
     await this.auditLogs.write({
       actorUserId: input.actorUserId,
       organizationId: parsed.organizationId,

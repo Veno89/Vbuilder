@@ -5,11 +5,12 @@ import { sessionRepository } from '@/modules/auth/application/auth-container';
 const sessionCookieName = 'vb_session';
 
 export async function POST(request: Request): Promise<Response> {
-  const token = request.headers.get('cookie')
+  const token = request.headers
+    .get('cookie')
     ?.split(';')
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${sessionCookieName}=`))
-    ?.split('=')[1];
+    ?.slice(sessionCookieName.length + 1);
 
   if (token) {
     await sessionRepository.revokeByTokenHash(hashToken(token));

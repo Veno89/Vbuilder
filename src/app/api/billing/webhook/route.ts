@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { billingService } from '@/modules/billing/application/billing-container';
+import { toRouteErrorResponse } from '@/modules/shared/presentation/route-error-response';
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -10,7 +11,9 @@ export async function POST(request: Request): Promise<Response> {
 
     return NextResponse.json({ received: true, processed: result.processed }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to process billing webhook.';
-    return NextResponse.json({ error: message }, { status: 400 });
+    return toRouteErrorResponse(error, {
+      authorizationStatus: 400,
+      fallbackMessage: 'Failed to process billing webhook.'
+    });
   }
 }

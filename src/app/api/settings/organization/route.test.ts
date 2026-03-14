@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthorizationError, NotFoundError } from '@/modules/shared/domain/errors';
 
 const requireAuthenticatedActor = vi.fn();
 const updateOrganizationSettings = vi.fn();
@@ -82,10 +83,10 @@ describe('settings organization route boundary', () => {
     );
   });
 
-  it('returns 400 when service reports permission denial', async () => {
+  it('returns 403 when service reports permission denial', async () => {
     const { PATCH } = await import('./route');
 
-    updateOrganizationSettings.mockRejectedValue(new Error('Missing permission: organization:update'));
+    updateOrganizationSettings.mockRejectedValue(new AuthorizationError('Missing permission: organization:update'));
 
     const response = await PATCH(
       new Request('https://example.com/api/settings/organization', {
@@ -98,7 +99,48 @@ describe('settings organization route boundary', () => {
       })
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: 'Missing permission: organization:update' });
+  });
+
+  it('returns 404 when service reports missing target', async () => {
+    const { PATCH } = await import('./route');
+
+    updateOrganizationSettings.mockRejectedValue(
+      new NotFoundError('Organization was not found.')
+    );
+
+    const response = await PATCH(
+      new Request('https://example.com/api/settings/organization', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          organizationId: '00000000-0000-0000-0000-000000000010',
+          name: 'Acme Updated',
+          slug: 'acme-updated'
+        })
+      })
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('returns sanitized 500 for unexpected service failures', async () => {
+    const { PATCH } = await import('./route');
+
+    updateOrganizationSettings.mockRejectedValue(new Error('db timeout'));
+
+    const response = await PATCH(
+      new Request('https://example.com/api/settings/organization', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          organizationId: '00000000-0000-0000-0000-000000000010',
+          name: 'Acme Updated',
+          slug: 'acme-updated'
+        })
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'Failed to update organization settings.' });
   });
 });

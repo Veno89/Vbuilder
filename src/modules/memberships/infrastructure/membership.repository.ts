@@ -2,14 +2,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { memberships } from '@/server/db/schema';
 import type { DatabaseClient } from '@/server/db/client';
 
-export type MembershipRole = 'owner' | 'admin' | 'member' | 'viewer';
-
-export type MembershipRecord = {
-  id: string;
-  organizationId: string;
-  userId: string;
-  role: MembershipRole;
-};
+import type { MembershipRecord, MembershipRole } from '../domain/membership.types';
 
 export class MembershipRepository {
   constructor(private readonly database: DatabaseClient) {}
@@ -57,8 +50,8 @@ export class MembershipRepository {
     organizationId: string;
     userId: string;
     role: MembershipRole;
-  }): Promise<void> {
-    await this.database
+  }): Promise<boolean> {
+    const result = await this.database
       .update(memberships)
       .set({ role: input.role })
       .where(
@@ -66,13 +59,19 @@ export class MembershipRepository {
           eq(memberships.organizationId, input.organizationId),
           eq(memberships.userId, input.userId)
         )
-      );
+      )
+      .returning({ id: memberships.id });
+
+    return Boolean(result[0]);
   }
 
-  async remove(organizationId: string, userId: string): Promise<void> {
-    await this.database
+  async remove(organizationId: string, userId: string): Promise<boolean> {
+    const result = await this.database
       .delete(memberships)
-      .where(and(eq(memberships.organizationId, organizationId), eq(memberships.userId, userId)));
+      .where(and(eq(memberships.organizationId, organizationId), eq(memberships.userId, userId)))
+      .returning({ id: memberships.id });
+
+    return Boolean(result[0]);
   }
 
   async countByOrganizationId(organizationId: string): Promise<number> {
